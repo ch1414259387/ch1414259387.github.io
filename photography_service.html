@@ -832,98 +832,153 @@
             // 生成画廊缩略图（如果 HTML 中已存在自定义缩略图，则此逻辑也不会覆盖）
             try {
                 const grid = document.getElementById('portfolio-grid');
-                    if (grid && grid.children.length === 0) {
+                if (grid && grid.children.length === 0) {
+                    // 检测是否为移动设备
+                    const isMobile = window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                    
                     // 水平居中并自适应列数，改为更多列并铺满可用宽度
                     grid.className = 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 w-full';
-                        const total = 100; // 总数（可按需调整）
-                        const batch = 12; // 每次加载数量
-                        let loaded = 0;
-                        const pad = (n) => String(n).padStart(2, '0');
-                        const tiny = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
+                    
+                    const total = 100; // 总数（可按需调整）
+                    // 移动设备减少每次加载数量，提高性能
+                    const batch = isMobile ? 6 : 12; // 每次加载数量
+                    // 移动设备减少初始加载数量
+                    const initialBatch = isMobile ? 6 : 12;
+                    let loaded = 0;
+                    const pad = (n) => String(n).padStart(2, '0');
+                    const tiny = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
 
-                        // 懒加载观察者（延迟创建），并封装观察单张图片的方法
-                        let io = null;
-                        const onLoadHandler = function(img){
-                            img.classList.add('fade-in');
+                    // 懒加载观察者（延迟创建），并封装观察单张图片的方法
+                    let io = null;
+                    
+                    // 移动设备优化：移除预加载功能，减轻网络负担
+                    const onLoadHandler = function(img){
+                        img.classList.add('fade-in');
+                        if (!isMobile) {
+                            // 仅在非移动设备上预加载下一张
                             const parent = img.parentElement;
                             const nextImg = parent && parent.nextElementSibling ? parent.nextElementSibling.querySelector('img') : null;
                             if(nextImg && nextImg.dataset && nextImg.dataset.src){
-                                const pre = new Image(); pre.src = nextImg.dataset.src;
+                                const pre = new Image(); 
+                                pre.src = nextImg.dataset.src;
                             }
-                        };
-                        function observeImage(img){
-                            if(!img) return;
-                            if('IntersectionObserver' in window){
-                                if(!io){
-                                    io = new IntersectionObserver((entries, obs) => {
-                                        entries.forEach(entry => {
-                                            if(entry.isIntersecting){
-                                                const im = entry.target;
-                                                if(im.dataset && im.dataset.src){
-                                                    im.src = im.dataset.src;
-                                                    im.removeAttribute('data-src');
-                                                    im.addEventListener('load', () => onLoadHandler(im), { once: true });
-                                                }
-                                                obs.unobserve(im);
+                        }
+                    };
+                    
+                    function observeImage(img){
+                        if(!img) return;
+                        if('IntersectionObserver' in window){
+                            if(!io){
+                                // 移动设备使用更保守的预加载区域
+                                const rootMargin = isMobile ? '100px 0px' : '300px 0px';
+                                io = new IntersectionObserver((entries, obs) => {
+                                    entries.forEach(entry => {
+                                        if(entry.isIntersecting){
+                                            const im = entry.target;
+                                            if(im.dataset && im.dataset.src){
+                                                im.src = im.dataset.src;
+                                                im.removeAttribute('data-src');
+                                                im.addEventListener('load', () => onLoadHandler(im), { once: true });
                                             }
-                                        });
-                                    }, { rootMargin: '300px 0px', threshold: 0.01 });
-                                }
-                                io.observe(img);
+                                            obs.unobserve(im);
+                                        }
+                                    });
+                                }, { rootMargin: rootMargin, threshold: 0.01 });
+                            }
+                            io.observe(img);
+                        } else {
+                            // 回退直接加载
+                            img.src = img.dataset.src;
+                            img.addEventListener('load', () => onLoadHandler(img), { once: true });
+                        }
+                    }
+
+                    function createThumb(i){
+                        const num = pad(i);
+                        const full = `images/Image${num}.jpg`;
+                        const link = document.createElement('a');
+                        link.href = full;
+                        link.className = 'portfolio-thumb w-full block rounded-xl overflow-hidden';
+                        link.setAttribute('data-full', full);
+                        link.setAttribute('aria-label', `Image ${num}`);
+
+                        const img = document.createElement('img');
+                        img.src = tiny; // 占位
+                        img.dataset.src = full;
+                        img.alt = `Image${num}`;
+                        img.loading = 'lazy';
+                        img.decoding = 'async';
+                        // 移动设备使用更小的图片尺寸，减少加载时间
+                        img.className = isMobile ? 
+                            'w-full h-32 object-cover transition-transform duration-200' : 
+                            'w-full h-48 md:h-56 lg:h-64 object-cover transition-transform duration-200 hover:scale-105';
+
+                        link.appendChild(img);
+                        return link;
+                    }
+
+                    // 添加加载指示器
+                    const loadingIndicator = document.createElement('div');
+                    loadingIndicator.className = 'loading-indicator hidden text-center py-4 text-gray-600';
+                    loadingIndicator.innerHTML = '<div class="animate-spin inline-block h-6 w-6 border-2 border-gray-300 border-t-blue-500 rounded-full"></div>';
+                    grid.parentElement.appendChild(loadingIndicator);
+
+                    // 优化批处理加载，使用requestAnimationFrame避免阻塞主线程
+                    function appendBatch(count, isInitial = false){
+                        const end = Math.min(total, loaded + count);
+                        const fragment = document.createDocumentFragment();
+                        
+                        // 显示加载指示器
+                        loadingIndicator.classList.remove('hidden');
+                        
+                        // 分批创建DOM元素，避免阻塞主线程
+                        function createBatch(start, batchSize){
+                            const currentEnd = Math.min(end, start + batchSize);
+                            for(let i = start; i <= currentEnd; i++) {
+                                const thumb = createThumb(i);
+                                fragment.appendChild(thumb);
+                                observeImage(thumb.querySelector('img'));
+                            }
+                            
+                            loaded = currentEnd;
+                            
+                            // 将创建的元素批量添加到DOM
+                            grid.appendChild(fragment);
+                            
+                            if(loaded < end) {
+                                // 使用requestAnimationFrame继续创建下一批
+                                requestAnimationFrame(() => createBatch(loaded + 1, batchSize));
                             } else {
-                                // 回退直接加载
-                                img.src = img.dataset.src;
-                                img.addEventListener('load', () => onLoadHandler(img), { once: true });
+                                // 全部加载完成，隐藏加载指示器
+                                loadingIndicator.classList.add('hidden');
+                                if(loaded >= total && loadMoreBtn){ 
+                                    loadMoreBtn.remove(); 
+                                }
                             }
                         }
+                        
+                        // 非阻塞方式开始创建
+                        requestAnimationFrame(() => createBatch(loaded + 1, 3)); // 每次创建3个元素
+                    }
 
-                        function createThumb(i){
-                            const num = pad(i);
-                            const full = `images/Image${num}.jpg`;
-                            const link = document.createElement('a');
-                            link.href = full;
-                            link.className = 'portfolio-thumb w-full block rounded-xl overflow-hidden';
-                            link.setAttribute('data-full', full);
-                            link.setAttribute('aria-label', `Image ${num}`);
+                    // 加载更多按钮（会被插入到 grid 的父容器内、紧随 grid 之后，确保位于图片下方并居中）
+                    const loadMoreBtn = document.createElement('button');
+                    loadMoreBtn.className = 'mt-6 sm:col-span-2 mx-auto bg-gray-100 text-gray-800 px-6 py-3 rounded-full shadow hover:bg-gray-200 justify-self-center';
+                    loadMoreBtn.textContent = '加载更多图片';
+                    loadMoreBtn.addEventListener('click', () => appendBatch(batch));
 
-                            const img = document.createElement('img');
-                            img.src = tiny; // 占位
-                            img.dataset.src = full;
-                            img.alt = `Image${num}`;
-                            img.loading = 'lazy';
-                            img.decoding = 'async';
-                            img.className = 'w-full h-48 md:h-56 lg:h-64 object-cover transition-transform duration-200 hover:scale-105';
-
-                            link.appendChild(img);
-                            grid.appendChild(link);
-                            observeImage(img);
-                        }
-
-                        function appendBatch(count){
-                            const end = Math.min(total, loaded + count);
-                            for(let i = loaded + 1; i <= end; i++) createThumb(i);
-                            loaded = end;
-                            if(loaded >= total && loadMoreBtn){ loadMoreBtn.remove(); }
-                        }
-
-                        // 加载更多按钮（会被插入到 grid 的父容器内、紧随 grid 之后，确保位于图片下方并居中）
-                        const loadMoreBtn = document.createElement('button');
-                        loadMoreBtn.className = 'mt-6 sm:col-span-2 mx-auto bg-gray-100 text-gray-800 px-6 py-3 rounded-full shadow hover:bg-gray-200 justify-self-center';
-                        loadMoreBtn.textContent = '加载更多图片';
-                        loadMoreBtn.addEventListener('click', () => appendBatch(batch));
-
-                        // 初始加载一批
-                        appendBatch(batch);
-                        // 将按钮插入到 grid 的父容器中，放在 grid 之后（这样它会作为单独一行出现在图片下方）
-                        const parent = grid.parentElement;
-                        if(parent){
-                            // 插入在 grid 之后，若存在紧邻的元素（说明文）则插入到该元素之前
-                            const next = grid.nextElementSibling;
-                            if(next) parent.insertBefore(loadMoreBtn, next);
-                            else parent.appendChild(loadMoreBtn);
-                        } else {
-                            grid.insertAdjacentElement('afterend', loadMoreBtn);
-                        }
+                    // 初始加载一批
+                    appendBatch(initialBatch, true);
+                    // 将按钮插入到 grid 的父容器中，放在 grid 之后（这样它会作为单独一行出现在图片下方）
+                    const parent = grid.parentElement;
+                    if(parent){
+                        // 插入在 grid 之后，若存在紧邻的元素（说明文）则插入到该元素之前
+                        const next = grid.nextElementSibling;
+                        if(next) parent.insertBefore(loadMoreBtn, next);
+                        else parent.appendChild(loadMoreBtn);
+                    } else {
+                        grid.insertAdjacentElement('afterend', loadMoreBtn);
+                    }
 
                     // 小提示：如果你希望用缩略图目录（images/thumb/...），可把 data-src 指向 thumb，再把 data-full 指向高清图。
                 }
