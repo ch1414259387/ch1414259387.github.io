@@ -67,9 +67,10 @@
                 padding: 2rem;
             }
             .lightbox-overlay.open { display: flex; }
-            .lightbox-inner { max-width: 95%; max-height: 95%; position: relative; }
-            .lightbox-inner img { max-width: 100%; max-height: 100%; border-radius: 0.5rem; box-shadow: 0 20px 40px rgba(0,0,0,0.6); transition: transform 0.25s ease; cursor: grab; }
-            .lightbox-inner img.zoomed { transform: scale(1.6); cursor: zoom-out; }
+            /* 调整为在视口内完整显示（contain），避免竖屏被裁切；保留轻微放大体验 */
+            .lightbox-inner { max-width: none; max-height: none; width: 100%; height: 100%; position: relative; display:flex; align-items:center; justify-content:center; box-sizing: border-box; }
+            .lightbox-inner img { width: auto; height: auto; max-width: calc(100vw - 4rem); max-height: calc(100vh - 4rem); object-fit: contain; object-position: center center; border-radius: 0.5rem; box-shadow: 0 20px 40px rgba(0,0,0,0.6); transition: transform 0.25s ease, object-position 0.25s ease; cursor: grab; }
+            .lightbox-inner img.zoomed { transform: scale(1.15); cursor: zoom-out; }
             .lightbox-close {
                 position: absolute; top: -1rem; right: -1rem; background: rgba(255,255,255,0.06); color: #fff; width: 40px; height: 40px; border-radius: 999px; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 8px 20px rgba(0,0,0,0.4);
             }
@@ -96,6 +97,50 @@
             .lightbox-nav.prev { left: 1rem; }
             .lightbox-nav.next { right: 1rem; }
             .lightbox-wrap { display:flex; flex-direction:column; align-items:center; justify-content:center; }
+            /* Ensure page can use full viewport height and remove default body margins */
+            :root { --nav-height: 4rem; }
+            html, body { height: 100%; margin: 0; padding: 0; }
+
+            /* 作品集区域铺满屏幕（至少占满一个视口高度），使用导航高度变量避免被固定导航遮挡 */
+            #portfolio-final {
+                min-height: calc(100vh - var(--nav-height));
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                padding-top: calc(var(--nav-height) + 1rem); /* 保留顶部空间以避免遮挡 */
+                padding-bottom: 2rem;
+                box-sizing: border-box;
+            }
+
+            /* 更流式的作品集网格：使用 auto-fit/minmax 让列数根据宽度自动收缩/扩展 */
+            #portfolio-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+                gap: 1rem;
+                width: 100%;
+                align-items: start;
+                justify-items: center;
+                /* span entire parent grid row so the thumbnail grid isn't constrained to a single column */
+                grid-column: 1 / -1;
+            }
+
+            /* 缩略图样式：保持稳定的纵横比，避免加载时布局抖动，同时保证图片充满格子 */
+            .portfolio-thumb { width: 100%; display: block; }
+            .portfolio-thumb img { width: 100%; height: 100%; object-fit: cover; aspect-ratio: 4 / 5; display: block; }
+
+            /* 小屏幕微调：减小内边距并增加网格间距的灵活性 */
+            @media (max-width: 640px) {
+                :root { --nav-height: 4rem; }
+                #portfolio-final { padding-top: calc(var(--nav-height) + 0.5rem); padding-bottom: 1.25rem; }
+                #portfolio-grid { gap: 0.75rem; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+                .portfolio-thumb img { aspect-ratio: 3 / 4; }
+            }
+
+            /* 大屏幕微调：让图片更高更具展示性 */
+            @media (min-width: 1280px) {
+                #portfolio-grid { gap: 1.25rem; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+                .portfolio-thumb img { aspect-ratio: 4 / 5; }
+            }
         }
     </style>
 </head>
@@ -135,7 +180,7 @@
                         <span class="text-gray-800">记录青春美好</span>
                     </h1>
                     <p class="text-xl text-gray-600 mb-8 leading-relaxed">
-                        拥有尼康Z6II专业设备 + 腾龙28-75mm G2镜头 + 金贝HD2Plus补光灯<br>
+                        拥有尼康Z6III专业设备 + 腾龙28-75mm G2镜头 + 金贝HD2Plus补光灯<br>
                         为山东现代学院师生提供高品质摄影服务
                     </p>
                     <div class="grid grid-cols-3 gap-6 mb-8">
@@ -163,7 +208,7 @@
                 </div>
                 <div class="relative">
                     <div class="float-animation">
-                        <img src="https://doc.doubao.com/s/cZHGa5hZInQ/" alt="专业AO师工作场景" class="w-full h-auto rounded-3xl shadow-2xl">
+                        <img src="images/推荐照片.jpg" alt="专业AO师工作场景" class="w-full h-auto rounded-3xl shadow-2xl">
                     </div>
                     <!-- 浮动元素 -->
                     <div class="absolute -top-4 -right-4 bg-white p-4 rounded-2xl shadow-lg">
@@ -481,7 +526,7 @@
             </div>
             <div class="grid lg:grid-cols-2 gap-12 items-center">
                 <div>
-                    <img src="https://doc.doubao.com/s/ohcXXqqGh74/" alt="专业AO器材" class="w-full h-auto rounded-3xl shadow-2xl">
+                    <img src="images/相机.jpg" alt="专业AO器材" class="w-full h-auto rounded-3xl shadow-2xl">
                 </div>
                 <div class="space-y-8">
                     <div class="flex items-start space-x-4">
@@ -489,7 +534,7 @@
                             <i class="fa fa-camera text-white text-xl"></i>
                         </div>
                         <div>
-                            <h3 class="text-xl font-bold text-gray-800 mb-2">尼康 Z6II</h3>
+                            <h3 class="text-xl font-bold text-gray-800 mb-2">尼康 Z6III</h3>
                             <p class="text-gray-600">全画幅微单相机，2450万像素，出色的低光表现和高速连拍</p>
                         </div>
                     </div>
@@ -653,7 +698,7 @@
                         </li>
                         <li class="flex items-center">
                             <i class="fa fa-wechat mr-2"></i>
-                            ch1414259387
+                            c1414259387
                         </li>
                         <li class="flex items-center">
                             <i class="fa fa-map-marker mr-2"></i>
@@ -670,18 +715,21 @@
 
     <!-- 作品集最终展示（页面末尾图片） -->
     <section id="portfolio-final" class="py-16 px-4 sm:px-6 lg:px-8 bg-white">
-        <div class="max-w-5xl mx-auto text-center">
+    <div class="max-w-full mx-auto text-center px-4">
             <h2 class="text-3xl font-bold text-gray-800 mb-6">作品集 — 精选展示</h2>
-            <!-- 作品集缩略图：images 文件夹下的 0.png 和 1.png -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <a href="#" class="portfolio-thumb" data-index="0" data-full="images/0.png">
-                    <img src="images/0.png" alt="作品 0" class="w-full h-auto rounded-3xl shadow-xl mb-0 cursor-zoom-in">
-                </a>
-                <a href="#" class="portfolio-thumb" data-index="1" data-full="images/1.png">
-                    <img src="images/1.png" alt="作品 1" class="w-full h-auto rounded-3xl shadow-xl mb-0 cursor-zoom-in">
+            <!-- 作品集缩略图：images 文件夹下的 0.png 和 相机.jpg -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 justify-items-center">
+                <!-- 缩略图已移除（手机兼容） -->
+                <div class="grid" id="portfolio-grid">
+                    <!-- 缩略图已删除以改善手机兼容性 -->
+                </div>
+            <p class="text-gray-600 mt-4 sm:col-span-2 text-center">点击任意图片可放大查看。(畜生正在更新中)</p>
+            <div class="mt-8 sm:col-span-2 flex justify-center">
+                <a href="https://www.xiaohongshu.com/user/profile/60737b190000000001006317" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 bg-gradient-to-r from-primary to-secondary text-white px-6 py-3 rounded-full font-semibold hover:shadow-lg transition-all">
+                    查看更多图片
+                    <i class="fa fa-external-link"></i>
                 </a>
             </div>
-            <p class="text-gray-600 mt-4">点击任意图片可放大查看。(畜生正在更新中)</p>
         </div>
     </section>
 
@@ -777,7 +825,155 @@
             observer.observe(card);
         });
 
-        // ===== Lightbox / Gallery 功能 =====
+        // ===== Gallery 生成（100 张）+ 懒加载 & Lightbox 功能 =====
+        // 说明：下面先动态生成 100 张缩略图（Image01.jpg..Image100.jpg），使用 data-src 延迟加载。
+        // 使用 IntersectionObserver 做智能预加载，保证滚动时平滑不卡顿；随后初始化 lightbox（支持触摸滑动）。
+        (function(){
+            // 生成画廊缩略图（如果 HTML 中已存在自定义缩略图，则此逻辑也不会覆盖）
+            try {
+                const grid = document.getElementById('portfolio-grid');
+                    if (grid && grid.children.length === 0) {
+                    // 水平居中并自适应列数，改为更多列并铺满可用宽度
+                    grid.className = 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 w-full';
+                        const total = 100; // 总数（可按需调整）
+                        const batch = 12; // 每次加载数量
+                        let loaded = 0;
+                        const pad = (n) => String(n).padStart(2, '0');
+                        const tiny = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
+
+                        // 懒加载观察者（延迟创建），并封装观察单张图片的方法
+                        let io = null;
+                        const onLoadHandler = function(img){
+                            img.classList.add('fade-in');
+                            const parent = img.parentElement;
+                            const nextImg = parent && parent.nextElementSibling ? parent.nextElementSibling.querySelector('img') : null;
+                            if(nextImg && nextImg.dataset && nextImg.dataset.src){
+                                const pre = new Image(); pre.src = nextImg.dataset.src;
+                            }
+                        };
+                        function observeImage(img){
+                            if(!img) return;
+                            if('IntersectionObserver' in window){
+                                if(!io){
+                                    io = new IntersectionObserver((entries, obs) => {
+                                        entries.forEach(entry => {
+                                            if(entry.isIntersecting){
+                                                const im = entry.target;
+                                                if(im.dataset && im.dataset.src){
+                                                    im.src = im.dataset.src;
+                                                    im.removeAttribute('data-src');
+                                                    im.addEventListener('load', () => onLoadHandler(im), { once: true });
+                                                }
+                                                obs.unobserve(im);
+                                            }
+                                        });
+                                    }, { rootMargin: '300px 0px', threshold: 0.01 });
+                                }
+                                io.observe(img);
+                            } else {
+                                // 回退直接加载
+                                img.src = img.dataset.src;
+                                img.addEventListener('load', () => onLoadHandler(img), { once: true });
+                            }
+                        }
+
+                        function createThumb(i){
+                            const num = pad(i);
+                            const full = `images/Image${num}.jpg`;
+                            const link = document.createElement('a');
+                            link.href = full;
+                            link.className = 'portfolio-thumb w-full block rounded-xl overflow-hidden';
+                            link.setAttribute('data-full', full);
+                            link.setAttribute('aria-label', `Image ${num}`);
+
+                            const img = document.createElement('img');
+                            img.src = tiny; // 占位
+                            img.dataset.src = full;
+                            img.alt = `Image${num}`;
+                            img.loading = 'lazy';
+                            img.decoding = 'async';
+                            img.className = 'w-full h-48 md:h-56 lg:h-64 object-cover transition-transform duration-200 hover:scale-105';
+
+                            link.appendChild(img);
+                            grid.appendChild(link);
+                            observeImage(img);
+                        }
+
+                        function appendBatch(count){
+                            const end = Math.min(total, loaded + count);
+                            for(let i = loaded + 1; i <= end; i++) createThumb(i);
+                            loaded = end;
+                            if(loaded >= total && loadMoreBtn){ loadMoreBtn.remove(); }
+                        }
+
+                        // 加载更多按钮（会被插入到 grid 的父容器内、紧随 grid 之后，确保位于图片下方并居中）
+                        const loadMoreBtn = document.createElement('button');
+                        loadMoreBtn.className = 'mt-6 sm:col-span-2 mx-auto bg-gray-100 text-gray-800 px-6 py-3 rounded-full shadow hover:bg-gray-200 justify-self-center';
+                        loadMoreBtn.textContent = '加载更多图片';
+                        loadMoreBtn.addEventListener('click', () => appendBatch(batch));
+
+                        // 初始加载一批
+                        appendBatch(batch);
+                        // 将按钮插入到 grid 的父容器中，放在 grid 之后（这样它会作为单独一行出现在图片下方）
+                        const parent = grid.parentElement;
+                        if(parent){
+                            // 插入在 grid 之后，若存在紧邻的元素（说明文）则插入到该元素之前
+                            const next = grid.nextElementSibling;
+                            if(next) parent.insertBefore(loadMoreBtn, next);
+                            else parent.appendChild(loadMoreBtn);
+                        } else {
+                            grid.insertAdjacentElement('afterend', loadMoreBtn);
+                        }
+
+                    // 小提示：如果你希望用缩略图目录（images/thumb/...），可把 data-src 指向 thumb，再把 data-full 指向高清图。
+                }
+            } catch (err) {
+                console.warn('生成画廊失败：', err);
+            }
+
+            // 智能懒加载：IntersectionObserver + 预加载下一张
+            (function(){
+                const grid = document.getElementById('portfolio-grid');
+                if(!grid) return;
+                const imgs = Array.from(grid.querySelectorAll('img[data-src]'));
+                if(!imgs.length) return;
+
+                const onLoadHandler = function(img){
+                    img.classList.add('fade-in');
+                    // 预加载下一个图片以减少切换时卡顿
+                    const parent = img.parentElement;
+                    const nextImg = parent && parent.nextElementSibling ? parent.nextElementSibling.querySelector('img') : null;
+                    if(nextImg && nextImg.dataset && nextImg.dataset.src){
+                        const pre = new Image();
+                        pre.src = nextImg.dataset.src;
+                    }
+                };
+
+                if('IntersectionObserver' in window){
+                    const io = new IntersectionObserver((entries, obs) => {
+                        entries.forEach(entry => {
+                            if(entry.isIntersecting){
+                                const img = entry.target;
+                                if(img.dataset && img.dataset.src){
+                                    img.src = img.dataset.src;
+                                    img.removeAttribute('data-src');
+                                    img.addEventListener('load', () => onLoadHandler(img), { once: true });
+                                }
+                                obs.unobserve(img);
+                            }
+                        });
+                    }, { rootMargin: '300px 0px', threshold: 0.01 });
+
+                    imgs.forEach(i => io.observe(i));
+                } else {
+                    // 回退：不支持 IntersectionObserver 的浏览器直接加载
+                    imgs.forEach(i => { i.src = i.dataset.src; i.addEventListener('load', () => onLoadHandler(i), { once: true }); });
+                }
+            })();
+
+            // 下面初始化 lightbox（依赖 .portfolio-thumb 元素），并增强触摸滑动支持
+        })();
+
         (function(){
             // 创建 lightbox DOM 并注入到 body（包含左右导航）
             const lightbox = document.createElement('div');
@@ -801,27 +997,53 @@
             const btnPrev = lightbox.querySelector('.lightbox-nav.prev');
             const btnNext = lightbox.querySelector('.lightbox-nav.next');
 
-            // 将页面上的缩略图构成画廊数组
-            const thumbs = Array.from(document.querySelectorAll('.portfolio-thumb'));
-            const gallery = thumbs.map(t => t.getAttribute('data-full') || t.querySelector('img')?.src);
-            const captions = thumbs.map(t => t.querySelector('img')?.alt || '');
             let currentIndex = 0;
 
-            function openLightboxByIndex(index) {
-                if (!gallery.length) return;
-                currentIndex = (index + gallery.length) % gallery.length;
-                lbImg.src = gallery[currentIndex];
-                lbImg.alt = captions[currentIndex] || '';
-                lbCaption.textContent = captions[currentIndex] || '';
+            // 使用事件代理绑定缩略图点击（支持动态添加图片）
+            const portfolioGrid = document.getElementById('portfolio-grid');
+            if (portfolioGrid) {
+                portfolioGrid.addEventListener('click', function(e){
+                    const a = e.target.closest('.portfolio-thumb');
+                    if(!a) return;
+                    e.preventDefault();
+                    const thumbsNow = Array.from(document.querySelectorAll('.portfolio-thumb'));
+                    const galleryNow = thumbsNow.map(t => t.getAttribute('data-full') || t.querySelector('img')?.src);
+                    const captionsNow = thumbsNow.map(t => t.querySelector('img')?.alt || '');
+                    const idx = thumbsNow.indexOf(a);
+                    if(idx >= 0) openLightboxByIndex(idx, galleryNow, captionsNow);
+                });
+            }
+
+            // openLightboxByIndex 接受动态传入的 gallery 与 captions，或在内部构建（用于动态添加缩略图场景）
+            function openLightboxByIndex(index, galleryArg, captionsArg) {
+                const galleryLocal = Array.isArray(galleryArg) ? galleryArg : Array.from(document.querySelectorAll('.portfolio-thumb')).map(t => t.getAttribute('data-full') || t.querySelector('img')?.src);
+                const captionsLocal = Array.isArray(captionsArg) ? captionsArg : Array.from(document.querySelectorAll('.portfolio-thumb')).map(t => t.querySelector('img')?.alt || '');
+                if (!galleryLocal.length) return;
+                currentIndex = (index + galleryLocal.length) % galleryLocal.length;
+                lbImg.src = galleryLocal[currentIndex];
+                lbImg.alt = captionsLocal[currentIndex] || '';
+                lbCaption.textContent = captionsLocal[currentIndex] || '';
+                // 使用 contain，默认不放大，只在点击时放大（zoomed）。确保 objectPosition 居中
                 lbImg.classList.remove('zoomed');
+                lbImg.style.objectPosition = 'center center';
                 lightbox.classList.add('open');
                 document.body.style.overflow = 'hidden';
+                // 预加载前后图片，减少切换等待
+                try{
+                    const prev = galleryLocal[(currentIndex - 1 + galleryLocal.length) % galleryLocal.length];
+                    const next = galleryLocal[(currentIndex + 1) % galleryLocal.length];
+                    if(prev){ const p = new Image(); p.src = prev; }
+                    if(next){ const n = new Image(); n.src = next; }
+                }catch(e){/* ignore */}
             }
 
             function closeLightbox() {
                 lightbox.classList.remove('open');
                 document.body.style.overflow = '';
                 lbImg.src = '';
+                // 恢复可能的内联样式与类
+                lbImg.style.objectPosition = '';
+                lbImg.classList.remove('fullscreen', 'zoomed');
             }
 
             function showPrev() { openLightboxByIndex(currentIndex - 1); }
@@ -852,16 +1074,23 @@
                 lbImg.classList.toggle('zoomed');
             });
 
-            // 绑定缩略图：按索引打开
-            thumbs.forEach((a, idx) => {
-                a.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    openLightboxByIndex(idx);
-                });
-            });
-
+            // 触摸滑动支持（移动端）：左右滑动切换
+            let touchStartX = null;
+            lbImg.addEventListener('touchstart', (e) => {
+                touchStartX = e.changedTouches && e.changedTouches[0] ? e.changedTouches[0].clientX : null;
+            }, {passive: true});
+            lbImg.addEventListener('touchend', (e) => {
+                if (touchStartX === null) return;
+                const touchEndX = e.changedTouches && e.changedTouches[0] ? e.changedTouches[0].clientX : null;
+                if (touchEndX === null) return;
+                const dx = touchEndX - touchStartX;
+                if (Math.abs(dx) > 40) {
+                    if (dx > 0) { showPrev(); } else { showNext(); }
+                }
+                touchStartX = null;
+            }, {passive: true});
             // 如果没有缩略图（gallery 为空），隐藏 lightbox 控件
-            if (!gallery.length) {
+            if (document.querySelectorAll('.portfolio-thumb').length === 0) {
                 lightbox.style.display = 'none';
             }
         })();
