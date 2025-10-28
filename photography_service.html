@@ -719,11 +719,10 @@
             <h2 class="text-3xl font-bold text-gray-800 mb-6">作品集 — 精选展示</h2>
             <!-- 作品集缩略图：images 文件夹下的 0.png 和 相机.jpg -->
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 justify-items-center">
-                <!-- 缩略图已移除（手机兼容） -->
-                <div class="grid" id="portfolio-grid">
-                    <!-- 缩略图已删除以改善手机兼容性 -->
+                <div class="grid" id="portfolio-grid" data-remote-base="">
+                    <!-- 缩略图将由脚本动态生成 -->
                 </div>
-            <p class="text-gray-600 mt-4 sm:col-span-2 text-center">点击任意图片可放大查看。(畜生正在更新中)</p>
+                <p class="text-gray-600 mt-4 sm:col-span-2 text-center">点击任意图片可放大查看。(畜生正在更新中)</p>
             <div class="mt-8 sm:col-span-2 flex justify-center">
                 <a href="https://ch1414259387.github.io/photos-2025/index.html" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 bg-gradient-to-r from-primary to-secondary text-white px-6 py-3 rounded-full font-semibold hover:shadow-lg transition-all">
                     查看更多图片
@@ -825,7 +824,7 @@
             observer.observe(card);
         });
 
-        // ===== Gallery 生成（100 张）+ 懒加载 & Lightbox 功能 =====
+    // ===== Gallery 生成（50 张）+ 懒加载 & 远程回退（GitHub Pages 友好） =====
         // 说明：下面先动态生成 100 张缩略图（Image01.jpg..Image100.jpg），使用 data-src 延迟加载。
         // 使用 IntersectionObserver 做智能预加载，保证滚动时平滑不卡顿；随后初始化 lightbox（支持触摸滑动）。
         (function(){
@@ -838,6 +837,7 @@
                         const total = 50; // 总数（可按需调整）
                         const batch = 5; // 每次加载数量
                         let loaded = 0;
+                        // 格式化为两位数且小写，例如 01, 02, ... 50
                         const pad = (n) => String(n);
                         const tiny = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
 
@@ -851,8 +851,43 @@
                                 const pre = new Image(); pre.src = nextImg.dataset.src;
                             }
                         };
+                        // helper: 尝试使用远程基址回退或占位图
+                        function joinRemoteBase(base, filename){
+                            if(!base) return '';
+                            base = base.trim();
+                            if(!base) return '';
+                            if(base.endsWith('/')) base = base.slice(0, -1);
+                            const low = base.toLowerCase();
+                            // 如果 base 已经包含文件名直接返回
+                            if(low.endsWith(filename.toLowerCase())) return base;
+                            // 如果 base 已包含 /images/ 不重复插入
+                            if(low.includes('/images/')) return base + '/' + filename;
+                            return base + '/images/' + filename;
+                        }
+
+                        function addFallbackOnError(img){
+                            if(!img) return;
+                            img.addEventListener('error', function handleError(){
+                                // 避免无限重试
+                                const attempts = Number(img.dataset.attempts || 0);
+                                img.dataset.attempts = attempts + 1;
+                                const grid = document.getElementById('portfolio-grid');
+                                const remoteBase = grid && grid.dataset && grid.dataset.remoteBase ? grid.dataset.remoteBase.trim() : '';
+                                const filename = img.dataset.filename || '';
+                                if(attempts === 0 && remoteBase && filename){
+                                    const remote = joinRemoteBase(remoteBase, filename);
+                                    if(remote){ img.src = remote; return; }
+                                }
+                                // 最终降级为 tiny 占位图
+                                img.src = tiny;
+                                img.removeEventListener('error', handleError);
+                            }, { once: false });
+                        }
+
                         function observeImage(img){
                             if(!img) return;
+                            // attach error fallback proactively
+                            addFallbackOnError(img);
                             if('IntersectionObserver' in window){
                                 if(!io){
                                     io = new IntersectionObserver((entries, obs) => {
@@ -879,17 +914,19 @@
 
                         function createThumb(i){
                             const num = pad(i);
-                            const full = `images/Image${num}.jpg`;
+                            // 使用你提供的命名方式：小写 image + 两位数字
+                            const full = `images/image${num}.jpg`;
                             const link = document.createElement('a');
                             link.href = full;
                             link.className = 'portfolio-thumb w-full block rounded-xl overflow-hidden';
                             link.setAttribute('data-full', full);
-                            link.setAttribute('aria-label', `Image ${num}`);
+                            link.setAttribute('aria-label', `image ${num}`);
 
                             const img = document.createElement('img');
                             img.src = tiny; // 占位
                             img.dataset.src = full;
-                            img.alt = `Image${num}`;
+                            img.dataset.filename = `image${num}.jpg`;
+                            img.alt = `image${num}`;
                             img.loading = 'lazy';
                             img.decoding = 'async';
                             img.className = 'w-full h-48 md:h-56 lg:h-64 object-cover transition-transform duration-200 hover:scale-105';
@@ -925,7 +962,45 @@
                             grid.insertAdjacentElement('afterend', loadMoreBtn);
                         }
 
-                    // 小提示：如果你希望用缩略图目录（images/thumb/...），可把 data-src 指向 thumb，再把 data-full 指向高清图。
+                        // 绑定远程基址 UI（用户可填 remote base，脚本会在本地加载失败时尝试从该基址加载图片）
+                        try{
+                            const remoteInput = document.getElementById('remoteBaseInput');
+                            const enableBtn = document.getElementById('enableRemoteBtn');
+                            const clearBtn = document.getElementById('clearRemoteBtn');
+                            const gridEl = document.getElementById('portfolio-grid');
+                            if(enableBtn && remoteInput && gridEl){
+                                enableBtn.addEventListener('click', () => {
+                                    const v = remoteInput.value.trim();
+                                    if(!v){ alert('请输入远程图片基址，例如 https://raw.githubusercontent.com/用户名/仓库/分支 或 https://用户名.github.io/仓库'); return; }
+                                    gridEl.dataset.remoteBase = v;
+                                    // 尝试重新加载已失败或仍为占位图的图片
+                                    Array.from(gridEl.querySelectorAll('img')).forEach(img => {
+                                        try{
+                                            const filename = img.dataset && img.dataset.filename ? img.dataset.filename : null;
+                                            if(!filename) return;
+                                            // 如果当前为占位图或加载失败（naturalWidth === 0），尝试远程
+                                            if(img.src === tiny || (img.complete && img.naturalWidth === 0)){
+                                                const remote = (v.endsWith('/') ? v.slice(0,-1) : v);
+                                                // 智能拼接（若 remote 已包含 images 路径则直接拼文件名）
+                                                let candidate = '';
+                                                const low = remote.toLowerCase();
+                                                if(low.includes('/images/')) candidate = remote + '/' + filename;
+                                                else candidate = remote + '/images/' + filename;
+                                                img.dataset.attempts = 0;
+                                                img.src = candidate;
+                                            }
+                                        }catch(e){/* ignore */}
+                                    });
+                                });
+                                clearBtn.addEventListener('click', () => {
+                                    const gridEl2 = document.getElementById('portfolio-grid');
+                                    if(gridEl2) delete gridEl2.dataset.remoteBase;
+                                    remoteInput.value = '';
+                                });
+                            }
+                        }catch(e){/* ignore UI binding errors */}
+
+                    // 小提示：如果你希望用缩略图目录（/thumb/...），可把 data-src 指向 thumb，再把 data-full 指向高清图。
                 }
             } catch (err) {
                 console.warn('生成画廊失败：', err);
@@ -958,6 +1033,26 @@
                                     img.src = img.dataset.src;
                                     img.removeAttribute('data-src');
                                     img.addEventListener('load', () => onLoadHandler(img), { once: true });
+                                    // 加入错误回退：若本地加载失败，尝试使用 data-remote-base 或最终降级为占位图
+                                    img.addEventListener('error', function _err(){
+                                        try{
+                                            const grid = document.getElementById('portfolio-grid');
+                                            const remoteBase = grid && grid.dataset ? (grid.dataset.remoteBase || '').trim() : '';
+                                            const filename = img.dataset && img.dataset.filename ? img.dataset.filename : '';
+                                            const attempts = Number(img.dataset.attempts || 0);
+                                            img.dataset.attempts = attempts + 1;
+                                            if(attempts === 0 && remoteBase && filename){
+                                                let candidate = '';
+                                                const low = remoteBase.toLowerCase();
+                                                const rb = remoteBase.endsWith('/') ? remoteBase.slice(0,-1) : remoteBase;
+                                                if(low.includes('/images/')) candidate = rb + '/' + filename;
+                                                else candidate = rb + '/images/' + filename;
+                                                img.src = candidate;
+                                                return;
+                                            }
+                                        }catch(e){/* ignore */}
+                                        img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
+                                    }, { once: false });
                                 }
                                 obs.unobserve(img);
                             }
@@ -967,7 +1062,10 @@
                     imgs.forEach(i => io.observe(i));
                 } else {
                     // 回退：不支持 IntersectionObserver 的浏览器直接加载
-                    imgs.forEach(i => { i.src = i.dataset.src; i.addEventListener('load', () => onLoadHandler(i), { once: true }); });
+                    imgs.forEach(i => {
+                        i.src = i.dataset.src;
+                        i.addEventListener('load', () => onLoadHandler(i), { once: true });
+                    });
                 }
             })();
 
